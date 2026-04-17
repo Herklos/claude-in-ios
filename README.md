@@ -108,10 +108,10 @@ After running, restart Claude Code. The `ios-simulator-preview` MCP will be avai
 In a Claude Code chat, type:
 
 ```
-Use the ios-simulator-preview MCP to get the preview URL and take a screenshot of the current simulator state.
+Use the ios-simulator-preview MCP to get the preview URL, then describe the current UI of the simulator.
 ```
 
-Claude should call `get_preview_url` (returning `http://localhost:7010/`) and `screenshot` (returning a base64 JPEG). If it says the tool is unknown, the MCP is not registered — re-run `npm run setup` and restart Claude Code. You can also list registered servers with:
+Claude should call `get_preview_url` (returning `http://localhost:7010/`) and `describe_ui` (returning the full accessibility tree as JSON). `describe_ui` is the strongest end-to-end check: it exercises both simctl and idb. If Claude says the tool is unknown, the MCP is not registered — re-run `npm run setup` and restart Claude Code. You can also list registered servers with:
 
 ```sh
 claude mcp list
