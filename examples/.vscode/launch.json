@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "iOS Simulator preview (Claude)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "claude-ios-simulator", "--port=7010"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "path": "http://localhost:7010/",
+      "previewMcp": {
+        "command": "npx",
+        "args": ["-y", "claude-ios-simulator", "mcp", "--port=7010"],
+        "transport": "stdio"
+      }
+    }
+  ]
+}
