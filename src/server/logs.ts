@@ -73,8 +73,19 @@ export function startOsLogs(udid: string): void {
   });
 }
 
-export function logsSince(sinceMs: number, source: "metro" | "os" | "all" = "all"): LogEvent[] {
+export function logsSince(
+  sinceMs: number,
+  source: "metro" | "os" | "all" = "all",
+  pattern?: string,
+): LogEvent[] {
+  let re: RegExp | null = null;
+  if (pattern) {
+    try { re = new RegExp(pattern, "i"); } catch { /* bad regex — skip filter */ }
+  }
   return logRing.filter(
-    (e) => e.ts >= sinceMs && (source === "all" || e.source === source),
+    (e) =>
+      e.ts >= sinceMs &&
+      (source === "all" || e.source === source) &&
+      (!re || re.test(e.message)),
   );
 }

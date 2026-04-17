@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 interface DeviceInfo {
   udid: string;
@@ -13,15 +13,33 @@ interface LogEntry {
   message: string;
 }
 
+function fmtTs(ts: number): string {
+  const d = new Date(ts);
+  return (
+    String(d.getHours()).padStart(2, "0") + ":" +
+    String(d.getMinutes()).padStart(2, "0") + ":" +
+    String(d.getSeconds()).padStart(2, "0") + "." +
+    String(d.getMilliseconds()).padStart(3, "0")
+  );
+}
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<DeviceInfo | null>(null);
+  const imageRef = useRef<HTMLImageElement>(new Image());
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+  const swipeStartRef = useRef<{ x: number; y: number; ts: number } | null>(null);
+  const didSwipeRef = useRef(false);
+
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [status, setStatus] = useState("connecting...");
-  const imageRef = useRef<HTMLImageElement>(new Image());
+  const [sourceFilter, setSourceFilter] = useState<"all" | "metro" | "os">("all");
+  const [textFilter, setTextFilter] = useState("");
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // fetch device metadata once
   useEffect(() => {
     fetch("/api/device")
       .then((r) => r.json() as Promise<DeviceInfo>)
@@ -29,7 +47,6 @@ export default function App() {
       .catch(() => {/* use defaults */});
   }, []);
 
-  // websocket for frames + logs
   useEffect(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/stream`);
@@ -41,7 +58,6 @@ export default function App() {
 
     ws.onmessage = (evt) => {
       if (evt.data instanceof ArrayBuffer) {
-        // binary = JPEG frame
         const blob = new Blob([evt.data], { type: "image/jpeg" });
         const url = URL.createObjectURL(blob);
         const img = imageRef.current;
@@ -55,7 +71,6 @@ export default function App() {
         };
         img.src = url;
       } else {
-        // text = log entry
         try {
           const entry = JSON.parse(evt.data as string) as LogEntry;
           if (entry.type === "log") {
@@ -66,6 +81,48 @@ export default function App() {
     };
 
     return () => ws.close();
+  }, []);
+
+  const filteredLogs = useMemo(
+    () =>
+      logs.filter(
+        (l) =>
+          (sourceFilter === "all" || l.source === sourceFilter) &&
+          (!textFilter || l.message.toLowerCase().includes(textFilter.toLowerCase())),
+      ),
+    [logs, sourceFilter, textFilter],
+  );
+
+  useLayoutEffect(() => {
+    if (stickToBottomRef.current) {
+      logsEndRef.current?.scrollIntoView({ block: "end" });
+    }
+  }, [filteredLogs]);
+
+  const handleLogsScroll = useCallback(() => {
+    const el = logsContainerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
+    stickToBottomRef.current = atBottom;
+    setShowScrollBtn(!atBottom);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    setShowScrollBtn(false);
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, []);
+
+  const changeSource = useCallback((s: "all" | "metro" | "os") => {
+    stickToBottomRef.current = true;
+    setShowScrollBtn(false);
+    setSourceFilter(s);
+  }, []);
+
+  const changeTextFilter = useCallback((v: string) => {
+    stickToBottomRef.current = true;
+    setShowScrollBtn(false);
+    setTextFilter(v);
   }, []);
 
   const sendInput = useCallback((msg: object) => {
@@ -82,7 +139,6 @@ export default function App() {
     const scaleY = canvas.height / rect.height;
     const pxX = (clientX - rect.left) * scaleX;
     const pxY = (clientY - rect.top) * scaleY;
-
     const dev = deviceRef.current;
     if (!dev || canvas.width === 0) return { x: pxX, y: pxY };
     return {
@@ -90,9 +146,6 @@ export default function App() {
       y: Math.round((pxY / canvas.height) * dev.pointHeight),
     };
   }, []);
-
-  const swipeStartRef = useRef<{ x: number; y: number; ts: number } | null>(null);
-  const didSwipeRef = useRef(false);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -182,19 +235,109 @@ export default function App() {
         borderRadius: 8,
         padding: 8,
         overflow: "hidden",
+        minWidth: 0,
       }}>
-        <div style={{ fontSize: 11, color: "#666", marginBottom: 4 }}>logs</div>
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          fontSize: 11,
-          lineHeight: 1.5,
-        }}>
-          {logs.map((l, i) => (
-            <div key={i} style={{ color: l.source === "metro" ? "#7ec8e3" : "#aaa" }}>
-              <span style={{ color: "#555" }}>[{l.source}]</span> {l.message}
+        {/* log panel header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: "#555", marginRight: 2 }}>logs</span>
+          {(["all", "metro", "os"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => changeSource(s)}
+              style={{
+                background: sourceFilter === s ? "#2a2a2a" : "transparent",
+                border: "1px solid " + (sourceFilter === s ? "#555" : "#2a2a2a"),
+                borderRadius: 4,
+                color: sourceFilter === s ? "#bbb" : "#444",
+                cursor: "pointer",
+                fontSize: 10,
+                padding: "2px 7px",
+              }}
+            >
+              {s}
+            </button>
+          ))}
+          <input
+            type="text"
+            placeholder="filter..."
+            value={textFilter}
+            onChange={(e) => changeTextFilter(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: 60,
+              background: "#1a1a1a",
+              border: "1px solid #2a2a2a",
+              borderRadius: 4,
+              color: "#ccc",
+              fontSize: 10,
+              padding: "2px 6px",
+              outline: "none",
+            }}
+          />
+          {showScrollBtn && (
+            <button
+              onClick={scrollToBottom}
+              title="Scroll to bottom"
+              style={{
+                background: "#1a1a1a",
+                border: "1px solid #2a2a2a",
+                borderRadius: 4,
+                color: "#888",
+                cursor: "pointer",
+                fontSize: 10,
+                padding: "2px 6px",
+              }}
+            >
+              ↓
+            </button>
+          )}
+          <button
+            onClick={() => setLogs([])}
+            style={{
+              background: "transparent",
+              border: "1px solid #2a2a2a",
+              borderRadius: 4,
+              color: "#444",
+              cursor: "pointer",
+              fontSize: 10,
+              padding: "2px 6px",
+            }}
+          >
+            clear
+          </button>
+        </div>
+
+        {/* log list */}
+        <div
+          ref={logsContainerRef}
+          onScroll={handleLogsScroll}
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            fontFamily: "monospace",
+            fontSize: 11,
+            lineHeight: 1.6,
+          }}
+        >
+          {filteredLogs.map((l, i) => (
+            <div
+              key={i}
+              style={{
+                color: l.source === "metro" ? "#7ec8e3" : "#999",
+                display: "flex",
+                gap: 6,
+                borderBottom: "1px solid #161616",
+                padding: "1px 0",
+              }}
+            >
+              <span style={{ color: "#383838", flexShrink: 0 }}>{fmtTs(l.ts)}</span>
+              <span style={{ color: l.source === "metro" ? "#3a6a7a" : "#383838", flexShrink: 0 }}>
+                [{l.source}]
+              </span>
+              <span style={{ wordBreak: "break-all" }}>{l.message}</span>
             </div>
           ))}
+          <div ref={logsEndRef} />
         </div>
       </div>
     </div>

@@ -92,9 +92,10 @@ export async function runMcp(port: number): Promise<void> {
   server.tool("logs_since", "Get recent logs from Metro or OS", {
     sinceMs: z.number().optional().describe("Unix ms timestamp; defaults to last 5 seconds"),
     source: z.enum(["metro", "os", "all"]).optional(),
-  }, async ({ sinceMs, source }) => {
+    pattern: z.string().optional().describe("Case-insensitive regex to filter log messages"),
+  }, async ({ sinceMs, source, pattern }) => {
     const since = sinceMs ?? Date.now() - 5000;
-    const entries = logsSince(since, source ?? "all");
+    const entries = logsSince(since, source ?? "all", pattern);
     return { content: [{ type: "text", text: JSON.stringify(entries) }] };
   });
 
