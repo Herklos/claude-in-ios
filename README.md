@@ -117,6 +117,8 @@ Claude should call `get_preview_url` (returning `http://localhost:7010/`) and `d
 claude mcp list
 ```
 
+![MCP Verification](screenshot-2.png)
+
 ## MCP Tools
 
 When running as an MCP server (`mcp` subcommand), these tools are available:

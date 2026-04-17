@@ -44,7 +44,7 @@ async function doctor(): Promise<void> {
   }
 }
 
-async function setupMcp(scope: "local" | "project" | "user"): Promise<void> {
+async function setupMcp(scope: "local" | "project" | "user", force: boolean): Promise<void> {
   // Resolve the entry point: prefer built dist/cli.js, fall back to tsx src/cli.ts
   const distCli = path.resolve(__dirname, "../../dist/cli.js");
   const srcCli = path.resolve(__dirname, "../cli.ts");
@@ -61,6 +61,12 @@ async function setupMcp(scope: "local" | "project" | "user"): Promise<void> {
   }
 
   console.log(`Registering MCP server with Claude Code (scope: ${scope})...`);
+
+  if (force) {
+    for (const s of ["local", "project", "user"]) {
+      await execa("claude", ["mcp", "remove", "ios-simulator-preview", "-s", s], { reject: false });
+    }
+  }
 
   try {
     await execa(
@@ -92,7 +98,8 @@ async function main(): Promise<void> {
       | "local"
       | "project"
       | "user";
-    await setupMcp(scope);
+    const force = args.includes("--force");
+    await setupMcp(scope, force);
     return;
   }
 
