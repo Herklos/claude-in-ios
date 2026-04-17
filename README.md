@@ -103,6 +103,20 @@ claude mcp add --scope=user    ios-simulator-preview -- npx tsx src/cli.ts mcp
 
 After running, restart Claude Code. The `ios-simulator-preview` MCP will be available with tools like `get_preview_url`, `tap`, `screenshot`, etc.
 
+### Verify the MCP is wired up
+
+In a Claude Code chat, type:
+
+```
+Use the ios-simulator-preview MCP to get the preview URL and take a screenshot of the current simulator state.
+```
+
+Claude should call `get_preview_url` (returning `http://localhost:7010/`) and `screenshot` (returning a base64 JPEG). If it says the tool is unknown, the MCP is not registered — re-run `npm run setup` and restart Claude Code. You can also list registered servers with:
+
+```sh
+claude mcp list
+```
+
 ## MCP Tools
 
 When running as an MCP server (`mcp` subcommand), these tools are available:
