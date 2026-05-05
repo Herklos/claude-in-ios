@@ -1,6 +1,8 @@
 # Claude in iOS
 
-**Claude can already drive any website. This makes iOS apps a website.**
+**DEPRECATED: use https://github.com/tddworks/baguette instead.**
+
+Claude can already drive any website. This makes iOS apps a website.
 
 Serves the booted iOS Simulator as a local webpage and bridges logs, events, and input between browser ⇄ simulator. This makes every existing Claude browser tool (`claude-in-chrome`) work against any Apple app — and exposes a Preview MCP so Claude Code and the agent SDK can auto-discover the simulator.
 
